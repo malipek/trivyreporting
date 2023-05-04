@@ -27,6 +27,10 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
+          name: Install AWS CLI and jq
+          command: |
+            apk add --no-cache aws-cli jq
+      - run:
           name: Configure AWS credentials
           command: |
             aws configure set aws_access_key_id $TST_AWS_ACCESS_KEY_ID
