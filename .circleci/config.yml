@@ -27,9 +27,9 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
-          name: Install AWS CLI and jq
+          name: Install AWS CLI, bash, and jq
           command: |
-            apk add --no-cache aws-cli jq
+            apk add --no-cache bash aws-cli jq
       - run:
           name: Configure AWS credentials
           command: |
@@ -40,8 +40,8 @@ jobs:
           # maybe skipped, if tag is taken from build id
           name: Get latest image tag
           command: |
-            TAG=$(aws ecr describe-images --repository-name $REPO_NAME --output json | jq -r '.imageDetails |= sort_by(.imagePushedAt) | .imageDetails[].imageTags[-1]' | tail -1)
-            echo "export TAG=$TAG" >> $BASH_ENV
+            bash TAG=$(aws ecr describe-images --repository-name $REPO_NAME --output json | jq -r '.imageDetails |= sort_by(.imagePushedAt) | .imageDetails[].imageTags[-1]' | tail -1)
+            bash echo "export TAG=$TAG" >> $BASH_ENV
       - run:
           name: Debug
           command: |
