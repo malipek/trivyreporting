@@ -1,113 +1,53 @@
 version: 2.1
 
-jobs:
-  checkout_code:
-    working_directory: ~/repo
-    docker:
-      - image: docker:stable-git
-    steps:
-      - checkout
-      - persist_to_workspace:
-          root: ~/repo
-          paths:
-            - .
+orbs:
+  aws-cli: circleci/aws-cli@3.1.5
 
-  build_and_push:
-    # Image is not persistent, testing should be in the
-    # same job as build, to save on pulling the image
-    working_directory: ~/repo
+executors:
+  trivy:
     docker:
-      - image: docker:stable-git
+      - image: aquasec/trivy:0.41.0
+
+jobs:
+  build-and-push:
+    executor: aws-cli/default
     steps:
-      - setup_remote_docker
-      - attach_workspace:
-          at: ~/repo
-      # restore cache for docker layers and Trivy databases/results
-      # to invalidate a cache change version number in key
-      - restore_cache:
-          keys:
-            - v1-{{ .Branch }}
-          paths:
-            - /caches/repo.tar
-            - /tmp/trivy/
+      #
+      # put steps to buid and push image to ECR here
+      #
+      # placeholder
       - run:
-          name: Load Docker layers from cache
-          command: set +o pipefail; docker load -i /caches/repo.tar | true
-      - run:
-          name: Build Docker, use cache
-          command: docker build --cache-from=myapp -t myapp .
-      - run:
-          name: Create dirs for caches
-          command: mkdir -p /caches/ /tmp/trivy/
-      - run:
-          name: Save Docker layers
-          command: docker save -o /caches/repo.tar myapp
-      - run:
-          name: Install Aquasecurity Trivy
+          name: Build and push image to ECR
           command: |
-            apk add --update-cache --upgrade curl && \
-            curl -sfL \
-            https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b /usr/local/bin
+            echo "Build and push image to ECR"
+
+  scan-image:
+    executor: trivy
+    steps:
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
-          name: Download JUnit formatter
+          name: Configure AWS credentials
           command: |
-            curl -sfL -o junit.tpl \
-            https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+            aws configure set aws_access_key_id $TST_AWS_ACCESS_KEY_ID
+            aws configure set aws_secret_access_key $TST_AWS_SECRET_ACCESS_KEY
+            aws configure set default.region $TST_AWS_DEFAULT_REGION
       - run:
-          name: Download HTML formatter
+          # maybe skipped, if tag is taken from build id
+          name: Get latest image tag
           command: |
-            curl -sfL -o html.tpl \
-            https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl
+            TAG=$(aws ecr describe-images --repository-name ${REPO_NAME} --output json | jq -r '.imageDetails |= sort_by(.imagePushedAt) | .imageDetails[].imageTags[-1]' | tail -1) && \
+            echo "export TAG=${TAG}" >> $BASH_ENV
       - run:
-          name: Create dirs for reports
-          command: mkdir -p ~/trivy/xml/ ~/trivy/html/
-      - run:
-          name: Scan image with Trivy, generate JUnit results
-          # CRITICAL, HIGH, MEDIUM only
+          name: Scan image
           command: |
-            trivy --cache-dir /tmp/trivy/ \
-            image --exit-code 0 --no-progress \
-            --severity CRITICAL,HIGH,MEDIUM \
-            --format template --template "@junit.tpl" \
-            -o ~/trivy/xml/trivy-scan.xml myapp
-      - run:
-          name: Scan image with Trivy, generate HTML artifacts
-          # CRITICAL, HIGH, MEDIUM only
-          command: |
-            trivy --cache-dir /tmp/trivy/ \
-            image --exit-code 0 --no-progress \
-            --severity CRITICAL,HIGH,MEDIUM \
-            --format template --template "@html.tpl" \
-            -o ~/trivy/html/trivy-scan.html myapp
-      - run:
-          name: Scan image with Trivy, fail for unfixed CRITICAL
-          # CRITICAL
-          command: |
-            trivy --cache-dir /tmp/trivy/ \
-            image --ignore-unfixed --exit-code 1 --no-progress \
-            --severity CRITICAL myapp > /dev/null
-      - save_cache:
-          key: v1-{{ .Branch }}-{{ epoch }}
-          paths:
-            - /caches/repo.tar
-            - /tmp/trivy/
-      - store_test_results:
-          path: ~/trivy/xml/
-      - store_artifacts:
-          path: ~/trivy/html/
-      - run:
-          name: Push image to registry
-          # docker login here
-          # docker push here
-          command: |
-            set +o pipefail; docker images
+            trivy image --ignore-unfixed --format table --exit-code 1 --no-progress --vuln-type os,library --severity CRITICAL,HIGH,MEDIUM "${ECR_URL}/${REPO_NAME}:${TAG}"
 
 workflows:
   version: 2
-  my_workflow:
+  build-deploy-and-scan:
     jobs:
-      - checkout_code
-      - build_and_push:
+      - build-and-push
+      - scan-image:
           requires:
-            - checkout_code
+            - build-and-push
