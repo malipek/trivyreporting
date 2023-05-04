@@ -37,15 +37,11 @@ jobs:
             aws configure set aws_secret_access_key $TST_AWS_SECRET_ACCESS_KEY
             aws configure set default.region $TST_AWS_DEFAULT_REGION
       - run:
-          # maybe skipped, if tag is taken from build id
-          name: Get latest image tag
+          name: Get latest image tag and scan image
           command: |
-            TAG=$(aws ecr describe-images --repository-name $REPO_NAME --output json | jq -r '.imageDetails |= sort_by(.imagePushedAt) | .imageDetails[].imageTags[-1]' | tail -1)
-            echo "export TAG=$TAG" >> $BASH_ENV
-      - run:
-          name: Scan image
-          command: |
-            bash trivy image --ignore-unfixed --format table --exit-code 1 --no-progress --vuln-type os,library --severity CRITICAL,HIGH,MEDIUM $ECR_URL/$REPO_NAME:$TAG
+            TAG=$(aws ecr describe-images --repository-name $REPO_NAME --output json | jq -r '.imageDetails |= sort_by(.imagePushedAt) | .imageDetails[].imageTags[-1]' | tail -1)\ &&
+            export TAG && \
+            trivy image --ignore-unfixed --format table --exit-code 1 --no-progress --vuln-type os,library --severity CRITICAL,HIGH,MEDIUM $ECR_URL/$REPO_NAME:$TAG
 
 workflows:
   version: 2
