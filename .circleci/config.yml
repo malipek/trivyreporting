@@ -45,13 +45,13 @@ jobs:
       - run:
           name: Debug
           command: |
-            echo "ECR_URL=$ECR_URL"
-            echo "REPO_NAME=$REPO_NAME"
-            echo "TAG=$TAG"
+            bash echo "ECR_URL=$ECR_URL"
+            bash echo "REPO_NAME=$REPO_NAME"
+            bash echo "TAG=$TAG"
       - run:
           name: Scan image
           command: |
-            trivy image --ignore-unfixed --format table --exit-code 1 --no-progress --vuln-type os,library --severity CRITICAL,HIGH,MEDIUM $ECR_URL/$REPO_NAME:$TAG
+            bash trivy image --ignore-unfixed --format table --exit-code 1 --no-progress --vuln-type os,library --severity CRITICAL,HIGH,MEDIUM $ECR_URL/$REPO_NAME:$TAG
 
 workflows:
   version: 2
