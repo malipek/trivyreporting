@@ -40,8 +40,8 @@ jobs:
           # maybe skipped, if tag is taken from build id
           name: Get latest image tag
           command: |
-            bash TAG=$(aws ecr describe-images --repository-name $REPO_NAME --output json | jq -r '.imageDetails |= sort_by(.imagePushedAt) | .imageDetails[].imageTags[-1]' | tail -1)
-            bash echo "export TAG=$TAG" >> $BASH_ENV
+            TAG=$(aws ecr describe-images --repository-name $REPO_NAME --output json | jq -r '.imageDetails |= sort_by(.imagePushedAt) | .imageDetails[].imageTags[-1]' | tail -1)
+            echo "export TAG=$TAG" >> $BASH_ENV
       - run:
           name: Debug
           command: |
