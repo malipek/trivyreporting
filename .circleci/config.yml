@@ -43,9 +43,14 @@ jobs:
             TAG=$(aws ecr describe-images --repository-name $REPO_NAME --output json | jq -r '.imageDetails |= sort_by(.imagePushedAt) | .imageDetails[].imageTags[-1]' | tail -1) && \
             echo "export TAG=${TAG}" >> $BASH_ENV
       - run:
+          name: Debug
+          command: |
+            echo "ECR_URL=$ECR_URL"
+            echo "REPO_NAME=$REPO_NAME"
+            echo "TAG=$TAG"
+      - run:
           name: Scan image
           command: |
-            echo "Scanning image $ECR_URL/$REPO_NAME:$TAG"
             trivy image --ignore-unfixed --format table --exit-code 1 --no-progress --vuln-type os,library --severity CRITICAL,HIGH,MEDIUM $ECR_URL/$REPO_NAME:$TAG
 
 workflows:
