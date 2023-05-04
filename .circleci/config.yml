@@ -45,6 +45,7 @@ jobs:
       - run:
           name: Scan image
           command: |
+            echo "Scanning image $ECR_URL/$REPO_NAME:$TAG"
             trivy image --ignore-unfixed --format table --exit-code 1 --no-progress --vuln-type os,library --severity CRITICAL,HIGH,MEDIUM $ECR_URL/$REPO_NAME:$TAG
 
 workflows:
