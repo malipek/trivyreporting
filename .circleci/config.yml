@@ -47,6 +47,10 @@ jobs:
           command: |
             aws ecr get-login-password | docker login --username AWS --password-stdin ${ECR_URL}
       - run:
+          name: Pull the image
+          command: |
+            docker pull "${ECR_URL}/${REPO_NAME}:${TAG}"
+      - run:
           name: Scan image
           command: |
             trivy image --ignore-unfixed --format table --exit-code 1 --no-progress --vuln-type os,library --severity CRITICAL,HIGH,MEDIUM "${ECR_URL}/${REPO_NAME}:${TAG}"
